@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Publish a GitHub release of the version in src/dymonite/__init__.py (main only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: pip install ruff==0.17.0
+      - run: ruff check .
+      - run: ruff format --check .
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.10", "3.14"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e '.[test]'
+      - run: pytest -q
+
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: pip install build==1.6.1
+      - run: python -m build
+      - name: Render sample labels from the built wheel
+        run: |
+          pip install dist/*.whl
+          mkdir samples
+          dymonite wifi "Packet Boutique" "correct-horse-battery" -o samples/wifi.png
+          dymonite label "Alex Buie" "Network Engineering" -q https://packet.boutique -o samples/badge.png
+          dymonite label "Box 12" "HDMI cables" "Power strips" -q https://example.com/box/12 -o samples/box.png
+          dymonite label "Return to IT" "Room 204" -s w79h252 -o samples/address.png
+      - id: version
+        run: echo "version=$(dymonite --version | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: samples
+          path: samples/
+
+  binary:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: dymonite-linux-x86_64
+          - os: macos-latest
+            name: dymonite-macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - run: pip install . pyinstaller==6.22.3
+      - run: pyinstaller --onefile --name dymonite src/dymonite/__main__.py
+      - name: Smoke test
+        run: |
+          dist/dymonite --version
+          dist/dymonite wifi Guest hunter22 -o smoke.png
+          test -s smoke.png
+      # tar keeps the executable bit, which release downloads lose
+      - run: tar -czf ${{ matrix.name }}.tar.gz -C dist dymonite
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.name }}
+          path: ${{ matrix.name }}.tar.gz
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v') || (inputs.release && github.ref == 'refs/heads/main')
+    needs: [lint, test, build, binary]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ needs.build.outputs.version }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "$TAG" ]]; then
+            echo "::error::tag $GITHUB_REF_NAME doesn't match the package version ($TAG)"
+            exit 1
+          fi
+          gh release create "$TAG" release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "dymonite $TAG" --generate-notes

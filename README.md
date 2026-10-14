@@ -8,17 +8,29 @@ the printer already works (macOS, Linux).
 
 ## Install
 
-Download a build from [Releases](https://github.com/ab2525/dymonite/releases), no Python needed:
+Download a build from [Releases](https://github.com/ab2525/dymonite/releases), no Python needed.
+Each comes for `macos-arm64` and `linux-x86_64`, in two kinds:
 
-```sh
-curl -sSL https://github.com/ab2525/dymonite/releases/latest/download/dymonite-macos-arm64.tar.gz | tar xz
-./dymonite --help        # or move it onto your PATH
-```
+- **Installed**, `dymonite-macos-arm64.tar.gz`: a folder that starts quickly. Keep `dymonite` and
+  `_internal/` together.
 
-(`dymonite-linux-x86_64.tar.gz` for Linux. A copy downloaded with a browser on macOS needs
-`xattr -d com.apple.quarantine dymonite` first.)
+  ```sh
+  cd ~ && rm -rf dymonite-macos-arm64
+  curl -sSL https://github.com/ab2525/dymonite/releases/latest/download/dymonite-macos-arm64.tar.gz | tar xz
+  echo 'export PATH="$HOME/dymonite-macos-arm64:$PATH"' >> ~/.zshrc    # once; then open a new terminal
+  ```
 
-Or install it as a Python tool (3.10+):
+- **Portable**, `dymonite-macos-arm64-portable`: one executable to copy anywhere. It unpacks itself
+  on every run, so each label takes a moment longer to start.
+
+  ```sh
+  curl -sSLo dymonite https://github.com/ab2525/dymonite/releases/latest/download/dymonite-macos-arm64-portable
+  chmod +x dymonite && ./dymonite --help
+  ```
+
+A copy downloaded with a browser on macOS needs `xattr -dr com.apple.quarantine <file or folder>` first.
+
+Or install it as a Python tool (3.10+), which starts fastest:
 
 ```sh
 uv tool install git+https://github.com/ab2525/dymonite    # or: pipx install git+https://...

@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dymonite"
+dynamic = ["version"]
+description = "Print text and QR code labels (Wi-Fi stickers, name badges, box labels) on a DYMO LabelWriter"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Alex Buie" }]
+requires-python = ">=3.10"
+dependencies = ["pillow>=10.1", "qrcode>=7.4"]
+classifiers = [
+  "Environment :: Console",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Topic :: Printing",
+]
+
+[project.optional-dependencies]
+test = ["pytest", "zxing-cpp"]
+
+[project.scripts]
+dymonite = "dymonite.cli:main"
+
+[project.urls]
+Source = "https://github.com/ab2525/dymonite"
+
+[tool.hatch.version]
+path = "src/dymonite/__init__.py"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

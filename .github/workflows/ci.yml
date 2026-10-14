@@ -91,18 +91,29 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install . pyinstaller==6.22.3
-      - run: pyinstaller --onefile --name dymonite src/dymonite/__main__.py
+      # Installed: a folder, quick to start
+      - run: pyinstaller --onedir --name dymonite --distpath installed --workpath build/onedir src/dymonite/__main__.py
+      - run: mv installed/dymonite installed/${{ matrix.name }}
+      # Portable: one file, which unpacks itself on every run, so slower to start (worst on macOS)
+      - run: pyinstaller --onefile --name dymonite --distpath portable --workpath build/onefile src/dymonite/__main__.py
       - name: Smoke test
         run: |
-          dist/dymonite --version
-          dist/dymonite wifi Guest hunter22 -o smoke.png
-          test -s smoke.png
-      # tar keeps the executable bit, which release downloads lose
-      - run: tar -czf ${{ matrix.name }}.tar.gz -C dist dymonite
+          for bin in installed/${{ matrix.name }}/dymonite portable/dymonite; do
+            "$bin" --version
+            "$bin" wifi Guest hunter22 -o smoke.png
+            test -s smoke.png
+            rm smoke.png
+          done
+      # The portable one ships bare, to download and chmod +x
+      - run: |
+          tar -czf ${{ matrix.name }}.tar.gz -C installed ${{ matrix.name }}
+          mv portable/dymonite ${{ matrix.name }}-portable
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.name }}
-          path: ${{ matrix.name }}.tar.gz
+          path: |
+            ${{ matrix.name }}.tar.gz
+            ${{ matrix.name }}-portable
 
   release:
     if: startsWith(github.ref, 'refs/tags/v') || (inputs.release && github.ref == 'refs/heads/main')

@@ -69,6 +69,8 @@ asked for, or the calibration real hardware needs (below).
 ## CI and releases
 
 - External actions by major tag (`actions/checkout@v5` and so on); tools pinned by version in `ci.yml`.
-- Every run uploads `release-*` artifacts (wheel, sdist, `dymonite-<os>-<arch>.tar.gz`) and `samples`.
+- Every run uploads `release-*` artifacts and `samples`. The release gets: wheel, sdist,
+  `dymonite-<os>-<arch>.tar.gz` (installed: a folder, quick to start) and `dymonite-<os>-<arch>-portable`
+  (one bare executable to download and `chmod +x`; it unpacks itself on every run).
 - A release is a `v<version>` tag, or the workflow run on `main` with `release` ticked; the version is
   `__version__` in `src/dymonite/__init__.py`, and a tag that doesn't match it fails the release.
